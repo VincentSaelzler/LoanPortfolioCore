@@ -1,4 +1,5 @@
-﻿using LoanPortfolioCore.Models;
+﻿using FileHelpers;
+using LoanPortfolioCore.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -117,6 +118,11 @@ namespace LoanPortfolioCore
             {
                 Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Count().ToString());
             }
+
+            const string outFileName = @"C:\Users\vince\Downloads\Power BI\Data\Loan Payments v03.csv";
+            var outEngine = new FileHelperEngine<Payment>();
+            outEngine.HeaderText = outEngine.GetFileHeader();
+            outEngine.WriteFile(outFileName, Payments);
 
             Console.ReadLine();
         }

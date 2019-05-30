@@ -1,9 +1,11 @@
-﻿using System;
+﻿using FileHelpers;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace LoanPortfolioCore.Models
 {
+    [DelimitedRecord(",")]
     class Payment
     {
         public int PaymentId { get; set; }
