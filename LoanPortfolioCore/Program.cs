@@ -86,6 +86,12 @@ namespace LoanPortfolioCore
                 }
             }
 
+            foreach (Loan l in Loans)
+            {
+                Console.WriteLine("Loan Info");
+                Console.WriteLine(l.MinPayment);
+            }
+
             Console.WriteLine("Interest");
             for (int i = 1; i <= 6; i++)
             {
@@ -119,8 +125,8 @@ namespace LoanPortfolioCore
         {
 
             Loans = new Loan[] {
-                new Loan() { LoanId = 1, LoanName = "Sample 10 Year", MinPayment = 222.04M, Principal = 20000, Rate = 0.06, TermInMonths = 120 },
-                new Loan() { LoanId = 2, LoanName = "Sample 5 Year", MinPayment = 184.17M, Principal = 10000, Rate = 0.04, TermInMonths = 60 }
+                new Loan() { LoanId = 1, LoanName = "Sample 10 Year", Principal = 20000, Rate = 0.06, TermInMonths = 120 },
+                new Loan() { LoanId = 2, LoanName = "Sample 5 Year", Principal = 10000, Rate = 0.04, TermInMonths = 60 }
                 };
 
             Strategies = new Strategy[] {
