@@ -72,12 +72,12 @@ namespace LoanPortfolioCore
                                 if (loanBalance > extraThisMonth)
                                 {
                                     payment.AdditionalPrincipal = extraThisMonth;
+                                    extraThisMonth = 0;
                                 }
                                 else
                                 {
                                     payment.AdditionalPrincipal = loanBalance;
                                 }
-                                extraThisMonth = 0;
                             }
 
                             Payments.Add(payment);
