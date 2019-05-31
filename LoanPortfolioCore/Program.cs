@@ -1,4 +1,6 @@
-﻿using FileHelpers;
+﻿using AutoMapper;
+using FileHelpers;
+using LoanPortfolioCore.FlatFileModels;
 using LoanPortfolioCore.Models;
 using System;
 using System.Collections.Generic;
@@ -15,9 +17,11 @@ namespace LoanPortfolioCore
 
         static void Main(string[] args)
         {
-
+            //initialize stuff
+            Mapper.Initialize(cfg => cfg.CreateMap<Loan, LoanOutput>());
             PopulateDimensions(new DateTime(2019, 6, 1));
 
+            //start the main for loop
             foreach (Strategy s in Strategies)
             {
                 foreach (Month m in Months)
@@ -50,35 +54,62 @@ namespace LoanPortfolioCore
 
                         if (loanBalance > 0)
                         {
-                            //calculate interest
-                            var currInterest = loanBalance * ((decimal)l.Rate / 12);
-
-                            //create a minumum payment
+                            //determine payment id
                             var maxPaymentId = Payments.DefaultIfEmpty().Max(p => p?.PaymentId ?? 0);
+                            var currPaymentId = maxPaymentId + 1;
 
-                            var payment = new Payment() { PaymentId = maxPaymentId + 1, Interest = currInterest, LoanId = l.LoanId, AdditionalPrincipal = 0, MonthId = m.MonthId, Principal = l.MinPayment - currInterest, StrategyId = s.StrategyId};
+                            //calculate "standard" payment
+                            var currInterest = loanBalance * ((decimal)l.Rate / 12);
+                            var currPrincipal = l.MinPayment - currInterest;
 
-                            loanBalance -= payment.Principal;
-
-                            if (loanBalance < 10) //the 10 is just an arbitrary amount that should cover rounding errors
+                            //pay the minumum principal (or the remaining balance)
+                            if (loanBalance <= currPrincipal)
                             {
-                                payment.Principal += loanBalance;
-                                loanBalance = 0;
+                                currPrincipal = loanBalance;
                             }
+                            loanBalance -= currPrincipal;
+
+                            //10 is just an arbitrary number to cover rounding
+                            //so if after the minumum payment is done, there is less than a $10 balance
+                            //just pay the remainder off.
+                            //it's a pretty high fudge factor. In calculations so far, only have been off a few pennies.
+                            int fudgeFactor = 10;
+                            decimal currAdditionalPrincipal = 0;
+
+                            //(optionally) add a bit of additional principal to cover finishing off the loan
+                            //DO NOT reset the extra per month to 0
+                            if (loanBalance < fudgeFactor)
+                            {
+                                currAdditionalPrincipal = loanBalance;
+                            }
+                            loanBalance -= currAdditionalPrincipal;
 
                             //(optionally) add additional principal
-                            if (extraThisMonth > 0)
+                            if (extraThisMonth > 0 && loanBalance > 0)
                             {
-                                if (loanBalance > extraThisMonth)
+                                if (extraThisMonth < loanBalance)
                                 {
-                                    payment.AdditionalPrincipal = extraThisMonth;
-                                    extraThisMonth = 0;
+                                    currAdditionalPrincipal = extraThisMonth;
                                 }
                                 else
                                 {
-                                    payment.AdditionalPrincipal = loanBalance;
+                                    currAdditionalPrincipal = loanBalance;
                                 }
+                                loanBalance -= currAdditionalPrincipal;
+
+                                extraThisMonth = 0;
                             }
+
+                            var payment = new Payment()
+                            {
+                                PaymentId = currPaymentId,
+                                Interest = currInterest,
+                                LoanId = l.LoanId,
+                                AdditionalPrincipal = currAdditionalPrincipal,
+                                MonthId = m.MonthId,
+                                Principal = currPrincipal,
+                                StrategyId = s.StrategyId
+                            };
 
                             Payments.Add(payment);
                             //Console.ReadLine();
@@ -119,17 +150,14 @@ namespace LoanPortfolioCore
                 Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Count().ToString());
             }
 
-            const string outFileName = @"C:\Users\vince\Downloads\Power BI\Data\Loan Payments v03.csv";
-            var outEngine = new FileHelperEngine<Payment>();
-            outEngine.HeaderText = outEngine.GetFileHeader();
-            outEngine.WriteFile(outFileName, Payments);
+
+            WriteOutputFiles();
 
             Console.ReadLine();
         }
 
         private static void PopulateDimensions(DateTime beginDate)
         {
-
             Loans = new Loan[] {
                 new Loan() { LoanId = 1, LoanName = "Sample 10 Year", Principal = 20000, Rate = 0.06, TermInMonths = 120 },
                 new Loan() { LoanId = 2, LoanName = "Sample 5 Year", Principal = 10000, Rate = 0.04, TermInMonths = 60 }
@@ -139,9 +167,18 @@ namespace LoanPortfolioCore
                 new Strategy() { StrategyId = 1, ExtraPerMonth = 0, SortOrder = "Highest Rate First", StrategyName = "HR 0" },
                 new Strategy() { StrategyId = 2, ExtraPerMonth = 100, SortOrder = "Highest Rate First", StrategyName = "HR 100" },
                 new Strategy() { StrategyId = 3, ExtraPerMonth = 200, SortOrder = "Highest Rate First", StrategyName = "HR 200" },
-                new Strategy() { StrategyId = 4, ExtraPerMonth = 0, SortOrder = "Lowest Balance First", StrategyName = "LB 0" },
-                new Strategy() { StrategyId = 5, ExtraPerMonth = 100, SortOrder = "Lowest Balance First", StrategyName = "LB 100" },
-                new Strategy() { StrategyId = 6, ExtraPerMonth = 200, SortOrder = "Lowest Balance First", StrategyName = "LB 200" }
+                new Strategy() { StrategyId = 4, ExtraPerMonth = 300, SortOrder = "Highest Rate First", StrategyName = "HR 300" },
+                new Strategy() { StrategyId = 5, ExtraPerMonth = 400, SortOrder = "Highest Rate First", StrategyName = "HR 400" },
+                new Strategy() { StrategyId = 6, ExtraPerMonth = 500, SortOrder = "Highest Rate First", StrategyName = "HR 500" },
+                new Strategy() { StrategyId = 7, ExtraPerMonth = 600, SortOrder = "Highest Rate First", StrategyName = "HR 600" },
+
+                new Strategy() { StrategyId = 8, ExtraPerMonth = 0, SortOrder = "Lowest Balance First", StrategyName = "LB 0" },
+                new Strategy() { StrategyId = 9, ExtraPerMonth = 100, SortOrder = "Lowest Balance First", StrategyName = "LB 100" },
+                new Strategy() { StrategyId = 10, ExtraPerMonth = 200, SortOrder = "Lowest Balance First", StrategyName = "LB 200" },
+                new Strategy() { StrategyId = 11, ExtraPerMonth = 300, SortOrder = "Lowest Balance First", StrategyName = "LB 300" },
+                new Strategy() { StrategyId = 12, ExtraPerMonth = 400, SortOrder = "Lowest Balance First", StrategyName = "LB 400" },
+                new Strategy() { StrategyId = 13, ExtraPerMonth = 500, SortOrder = "Lowest Balance First", StrategyName = "LB 500" },
+                new Strategy() { StrategyId = 14, ExtraPerMonth = 600, SortOrder = "Lowest Balance First", StrategyName = "LB 600" },
                 };
 
             Months = new List<Month>();
@@ -151,6 +188,36 @@ namespace LoanPortfolioCore
             }
 
             Payments = new List<Payment>();
+        }
+        private static void WriteOutputFiles()
+        {
+            const string filePath = @"C:\Users\vince\Downloads\Power BI\Data\";
+            string outFileNamePmt = $"{filePath}Loan Payments v04.csv";
+            string outFileNameLoan = $"{filePath}Loan Loans v04.csv";
+            string outFileNameStrat = $"{filePath}Loan Strategies v04.csv";
+            string outFileNameMonth = $"{filePath}Loan Months v04.csv";
+
+            //payments
+            var outEnginePmt = new FileHelperEngine<Payment>();
+            outEnginePmt.HeaderText = outEnginePmt.GetFileHeader();
+            outEnginePmt.WriteFile(outFileNamePmt, Payments);
+
+            //loans
+            IEnumerable<LoanOutput> loanOutputs = Mapper.Map<IEnumerable<Loan>, IEnumerable<LoanOutput>>(Loans);
+
+            var outEngineLoan = new FileHelperEngine<LoanOutput>();
+            outEngineLoan.HeaderText = outEngineLoan.GetFileHeader();
+            outEngineLoan.WriteFile(outFileNameLoan, loanOutputs);
+
+            //strategies
+            var outEngineStrat = new FileHelperEngine<Strategy>();
+            outEngineStrat.HeaderText = outEngineStrat.GetFileHeader();
+            outEngineStrat.WriteFile(outFileNameStrat, Strategies);
+
+            //months
+            var outEngineMonth = new FileHelperEngine<Month>();
+            outEngineMonth.HeaderText = outEngineMonth.GetFileHeader();
+            outEngineMonth.WriteFile(outFileNameMonth, Months);
         }
     }
 }
