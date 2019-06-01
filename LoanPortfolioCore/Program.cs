@@ -97,7 +97,7 @@ namespace LoanPortfolioCore
                                 }
                                 loanBalance -= currAdditionalPrincipal;
 
-                                extraThisMonth = 0;
+                                extraThisMonth -= currAdditionalPrincipal;
                             }
 
                             var payment = new Payment()
@@ -118,41 +118,8 @@ namespace LoanPortfolioCore
                 }
             }
 
-            foreach (Loan l in Loans)
-            {
-                Console.WriteLine("Loan Info");
-                Console.WriteLine(l.MinPayment);
-            }
-
-            Console.WriteLine("Interest");
-            for (int i = 1; i <= 6; i++)
-            {
-                Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Sum(p => p.Interest).ToString());
-            }
-            Console.WriteLine("Principal");
-            for (int i = 1; i <= 6; i++)
-            {
-                Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Sum(p => p.Principal).ToString());
-            }
-            Console.WriteLine("Additional Principal");
-            for (int i = 1; i <= 6; i++)
-            {
-                Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Sum(p => p.AdditionalPrincipal).ToString());
-            }
-            Console.WriteLine("Total Principal");
-            for (int i = 1; i <= 6; i++)
-            {
-                Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Sum(p => p.AdditionalPrincipal + p.Principal).ToString());
-            }
-            Console.WriteLine("Payment Count");
-            for (int i = 1; i <= 6; i++)
-            {
-                Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Count().ToString());
-            }
-
-
             WriteOutputFiles();
-
+            WriteDebugInfo();
             Console.ReadLine();
         }
 
@@ -218,6 +185,40 @@ namespace LoanPortfolioCore
             var outEngineMonth = new FileHelperEngine<Month>();
             outEngineMonth.HeaderText = outEngineMonth.GetFileHeader();
             outEngineMonth.WriteFile(outFileNameMonth, Months);
+        }
+        private static void WriteDebugInfo()
+        {
+            foreach (Loan l in Loans)
+            {
+                Console.WriteLine("Loan Info");
+                Console.WriteLine(l.MinPayment);
+            }
+
+            Console.WriteLine("Interest");
+            for (int i = 1; i <= 6; i++)
+            {
+                Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Sum(p => p.Interest).ToString());
+            }
+            Console.WriteLine("Principal");
+            for (int i = 1; i <= 6; i++)
+            {
+                Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Sum(p => p.Principal).ToString());
+            }
+            Console.WriteLine("Additional Principal");
+            for (int i = 1; i <= 6; i++)
+            {
+                Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Sum(p => p.AdditionalPrincipal).ToString());
+            }
+            Console.WriteLine("Total Principal");
+            for (int i = 1; i <= 6; i++)
+            {
+                Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Sum(p => p.AdditionalPrincipal + p.Principal).ToString());
+            }
+            Console.WriteLine("Payment Count");
+            for (int i = 1; i <= 6; i++)
+            {
+                Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Count().ToString());
+            }
         }
     }
 }
