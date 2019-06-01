@@ -108,7 +108,8 @@ namespace LoanPortfolioCore
                                 AdditionalPrincipal = currAdditionalPrincipal,
                                 MonthId = m.MonthId,
                                 Principal = currPrincipal,
-                                StrategyId = s.StrategyId
+                                StrategyId = s.StrategyId,
+                                PrincipalBalance = loanBalance
                             };
 
                             Payments.Add(payment);
@@ -159,10 +160,10 @@ namespace LoanPortfolioCore
         private static void WriteOutputFiles()
         {
             const string filePath = @"C:\Users\vince\Downloads\Power BI\Data\";
-            string outFileNamePmt = $"{filePath}Loan Payments v04.csv";
-            string outFileNameLoan = $"{filePath}Loan Loans v04.csv";
-            string outFileNameStrat = $"{filePath}Loan Strategies v04.csv";
-            string outFileNameMonth = $"{filePath}Loan Months v04.csv";
+            string outFileNamePmt = $"{filePath}Loan Payments v05.csv";
+            string outFileNameLoan = $"{filePath}Loan Loans v05.csv";
+            string outFileNameStrat = $"{filePath}Loan Strategies v05.csv";
+            string outFileNameMonth = $"{filePath}Loan Months v05.csv";
 
             //payments
             var outEnginePmt = new FileHelperEngine<Payment>();
