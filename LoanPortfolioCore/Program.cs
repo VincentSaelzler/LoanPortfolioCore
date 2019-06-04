@@ -13,7 +13,7 @@ namespace LoanPortfolioCore
         private static IEnumerable<Loan> Loans { get; set; }
         private static IList<Payment> Payments { get; set; }
         private static IList<Month> Months { get; set; }
-        private static IEnumerable<Strategy> Strategies { get; set; }
+        private static IList<Strategy> Strategies { get; set; }
 
         static void Main(string[] args)
         {
@@ -32,10 +32,11 @@ namespace LoanPortfolioCore
 
                     switch (s.SortOrder)
                     {
-                        case "Highest Rate First":
+                        case SortOrders.HighestRateFirst:
+                        case SortOrders.NotApplicable: //the order really doesn't matter but we DO need an IOrderedEnumerable
                             orderedLoans = Loans.OrderByDescending(ul => ul.Rate);
                             break;
-                        case "Lowest Balance First":
+                        case SortOrders.LowestBalanceFirst:
                             orderedLoans = Loans.OrderBy(ul => ul.Principal);
                             break;
                         default:
@@ -131,26 +132,34 @@ namespace LoanPortfolioCore
                 new Loan() { LoanId = 2, LoanName = "Sample 5 Year", Principal = 10000, Rate = 0.04, TermInMonths = 60 }
                 };
 
-            Strategies = new Strategy[] {
-                new Strategy() { StrategyId = 1, ExtraPerMonth = 0, SortOrder = "Highest Rate First", StrategyName = "HR 0" },
-                new Strategy() { StrategyId = 2, ExtraPerMonth = 100, SortOrder = "Highest Rate First", StrategyName = "HR 100" },
-                new Strategy() { StrategyId = 3, ExtraPerMonth = 200, SortOrder = "Highest Rate First", StrategyName = "HR 200" },
-                new Strategy() { StrategyId = 4, ExtraPerMonth = 300, SortOrder = "Highest Rate First", StrategyName = "HR 300" },
-                new Strategy() { StrategyId = 5, ExtraPerMonth = 400, SortOrder = "Highest Rate First", StrategyName = "HR 400" },
-                new Strategy() { StrategyId = 6, ExtraPerMonth = 500, SortOrder = "Highest Rate First", StrategyName = "HR 500" },
-                new Strategy() { StrategyId = 7, ExtraPerMonth = 600, SortOrder = "Highest Rate First", StrategyName = "HR 600" },
+            int id = 1;
+            var sortOrdersForLoop = new SortOrders[] { SortOrders.HighestRateFirst, SortOrders.LowestBalanceFirst };
+            var extraAmountsForLoop = new int[] { 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000 };
 
-                new Strategy() { StrategyId = 8, ExtraPerMonth = 0, SortOrder = "Lowest Balance First", StrategyName = "LB 0" },
-                new Strategy() { StrategyId = 9, ExtraPerMonth = 100, SortOrder = "Lowest Balance First", StrategyName = "LB 100" },
-                new Strategy() { StrategyId = 10, ExtraPerMonth = 200, SortOrder = "Lowest Balance First", StrategyName = "LB 200" },
-                new Strategy() { StrategyId = 11, ExtraPerMonth = 300, SortOrder = "Lowest Balance First", StrategyName = "LB 300" },
-                new Strategy() { StrategyId = 12, ExtraPerMonth = 400, SortOrder = "Lowest Balance First", StrategyName = "LB 400" },
-                new Strategy() { StrategyId = 13, ExtraPerMonth = 500, SortOrder = "Lowest Balance First", StrategyName = "LB 500" },
-                new Strategy() { StrategyId = 14, ExtraPerMonth = 600, SortOrder = "Lowest Balance First", StrategyName = "LB 600" },
-                };
+            //create the "special" base strategy
+            Strategies = new List<Strategy>
+            {
+                new Strategy() { StrategyId = id, ExtraPerMonth = 0, SortOrder = SortOrders.NotApplicable, StrategyName = "Base" }
+            };
+
+            //create the rest of the strategies
+            foreach (var sortOrder in sortOrdersForLoop)
+            {
+                foreach (var extraAmount in extraAmountsForLoop)
+                {
+                    id++;
+                    Strategies.Add(new Strategy
+                    {
+                        StrategyId = id,
+                        ExtraPerMonth = extraAmount,
+                        SortOrder = sortOrder,
+                        StrategyName = $"{sortOrder} {extraAmount}"
+                    });
+                }
+            }
 
             Months = new List<Month>();
-            for (int i = 0; i < 360; i++)
+            for (int i = 0; i < 360; i++) //nothing special about 360 - just seemed like long time!
             {
                 Months.Add(new Month() { MonthId = i + 1, Date = beginDate.AddMonths(i) });
             }

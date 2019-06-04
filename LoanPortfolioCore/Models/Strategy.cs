@@ -10,7 +10,7 @@ namespace LoanPortfolioCore.Models
     {
         public int StrategyId { get; set; }
         public string StrategyName { get; set; }
-        public string SortOrder { get; set; }
+        public SortOrders SortOrder { get; set; }
         public decimal ExtraPerMonth { get; set; }
     }
 }
