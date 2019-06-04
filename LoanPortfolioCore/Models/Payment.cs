@@ -13,9 +13,9 @@ namespace LoanPortfolioCore.Models
         public int MonthId { get; set; }
         public int StrategyId { get; set; }
 
-        public decimal AdditionalPrincipal { get; set; }
-        public decimal Interest { get; set; }
-        public decimal Principal { get; set; }
-        public decimal PrincipalBalance { get; set; }
+        public double AdditionalPrincipal { get; set; }
+        public double Interest { get; set; }
+        public double Principal { get; set; }
+        public double PrincipalBalance { get; set; }
     }
 }

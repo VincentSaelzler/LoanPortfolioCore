@@ -11,7 +11,7 @@ namespace LoanPortfolioCore
     class Program
     {
         private static IEnumerable<Loan> Loans { get; set; }
-        private static IList<Payment> Payments { get; set; }
+        private static List<Payment> Payments { get; set; }
         private static IList<Month> Months { get; set; }
         private static IList<Strategy> Strategies { get; set; }
 
@@ -24,12 +24,16 @@ namespace LoanPortfolioCore
             //start the main for loop
             foreach (Strategy s in Strategies)
             {
+                var payments = new List<Payment>();
+
                 foreach (Month m in Months)
                 {
-                    decimal extraThisMonth = s.ExtraPerMonth;
+                    //don't put anything in the "extra" pile if we should still be waiting
+                    //the MonthId starts at ONE for the first month. Months delay starts at 0
+                    double extraThisMonth = m.MonthId > s.MonthsDelay ? s.ExtraPerMonth : 0;
 
+                    //order the loans
                     IOrderedEnumerable<Loan> orderedLoans;
-
                     switch (s.SortOrder)
                     {
                         case SortOrders.HighestRateFirst:
@@ -46,21 +50,22 @@ namespace LoanPortfolioCore
                     foreach (Loan l in orderedLoans)
                     {
                         //get all the principal payments up to this point
-                        var pastPayments = Payments.Where(p => p.MonthId < m.MonthId && p.LoanId == l.LoanId && p.StrategyId == s.StrategyId);
+                        var pastPayments = payments.Where(p => p.LoanId == l.LoanId && p.MonthId < m.MonthId);
 
                         var totalPaid = pastPayments.Sum(p => p.Principal + p.AdditionalPrincipal);
 
                         var loanBalance = l.Principal - totalPaid;
 
-
                         if (loanBalance > 0)
                         {
                             //determine payment id
-                            var maxPaymentId = Payments.DefaultIfEmpty().Max(p => p?.PaymentId ?? 0);
-                            var currPaymentId = maxPaymentId + 1;
+                            var maxOverallPaymentId = Payments.DefaultIfEmpty().Max(p => p?.PaymentId ?? 0);
+                            var maxStratPaymentId = payments.DefaultIfEmpty().Max(p => p?.PaymentId ?? 0);
+                            var maxPaymentId = Math.Max(maxOverallPaymentId, maxStratPaymentId);
+                            var currPaymentId = maxOverallPaymentId + 1;
 
                             //calculate "standard" payment
-                            var currInterest = loanBalance * ((decimal)l.Rate / 12);
+                            var currInterest = loanBalance * (l.Rate / 12);
                             var currPrincipal = l.MinPayment - currInterest;
 
                             //pay the minumum principal (or the remaining balance)
@@ -75,7 +80,7 @@ namespace LoanPortfolioCore
                             //just pay the remainder off.
                             //it's a pretty high fudge factor. In calculations so far, only have been off a few pennies.
                             int fudgeFactor = 10;
-                            decimal currAdditionalPrincipal = 0;
+                            double currAdditionalPrincipal = 0;
 
                             //(optionally) add a bit of additional principal to cover finishing off the loan
                             //DO NOT reset the extra per month to 0
@@ -113,18 +118,20 @@ namespace LoanPortfolioCore
                                 PrincipalBalance = loanBalance
                             };
 
-                            Payments.Add(payment);
+                            payments.Add(payment);
                             //Console.ReadLine();
                         }
                     }
                 }
+
+                Payments.AddRange(payments);
+                Console.WriteLine(s.StrategyId);
             }
 
             WriteOutputFiles();
             WriteDebugInfo();
             Console.ReadLine();
         }
-
         private static void PopulateDimensions(DateTime beginDate)
         {
             Loans = new Loan[] {
@@ -132,29 +139,42 @@ namespace LoanPortfolioCore
                 new Loan() { LoanId = 2, LoanName = "Sample 5 Year", Principal = 10000, Rate = 0.04, TermInMonths = 60 }
                 };
 
+            //strategies
             int id = 1;
-            var sortOrdersForLoop = new SortOrders[] { SortOrders.HighestRateFirst, SortOrders.LowestBalanceFirst };
-            var extraAmountsForLoop = new int[] { 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000 };
+            var sortOrders = new SortOrders[] { SortOrders.HighestRateFirst, SortOrders.LowestBalanceFirst };
+
+            const int loopMax = 10;
+            int[] extraAmounts = new int[loopMax];
+            int[] monthsDelay = new int[loopMax];
+            for (int i = 0; i < loopMax; i++)
+            {
+                extraAmounts[i] = (i + 1) * 100;
+                monthsDelay[i] = i;
+            }
 
             //create the "special" base strategy
             Strategies = new List<Strategy>
             {
-                new Strategy() { StrategyId = id, ExtraPerMonth = 0, SortOrder = SortOrders.NotApplicable, StrategyName = "Base" }
+                new Strategy() { StrategyId = id, ExtraPerMonth = 0, SortOrder = SortOrders.NotApplicable, StrategyName = "Base", MonthsDelay = 0 }
             };
 
             //create the rest of the strategies
-            foreach (var sortOrder in sortOrdersForLoop)
+            foreach (var sortOrder in sortOrders)
             {
-                foreach (var extraAmount in extraAmountsForLoop)
+                foreach (var extraAmount in extraAmounts)
                 {
-                    id++;
-                    Strategies.Add(new Strategy
+                    foreach (var monthDelay in monthsDelay)
                     {
-                        StrategyId = id,
-                        ExtraPerMonth = extraAmount,
-                        SortOrder = sortOrder,
-                        StrategyName = $"{sortOrder} {extraAmount}"
-                    });
+                        id++;
+                        Strategies.Add(new Strategy
+                        {
+                            StrategyId = id,
+                            ExtraPerMonth = extraAmount,
+                            SortOrder = sortOrder,
+                            StrategyName = $"{sortOrder} {extraAmount}",
+                            MonthsDelay = monthDelay
+                        });
+                    }
                 }
             }
 

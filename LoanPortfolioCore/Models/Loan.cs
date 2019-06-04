@@ -8,11 +8,11 @@ namespace LoanPortfolioCore.Models
     class Loan
     {
         public int LoanId { get; set; }
-        public decimal Principal { get; set; }
+        public double Principal { get; set; }
         public double Rate { get; set; } //annual
         public int TermInMonths { get; set; }
         public string LoanName { get; set; }
-        public decimal MinPayment
+        public double MinPayment
         {
             get
             {
@@ -34,7 +34,7 @@ namespace LoanPortfolioCore.Models
                 P = (i * A) /
                     (1 - Math.Pow((1 + i), -N));
 
-                return (decimal)P;
+                return P;
             }
         }
     }
