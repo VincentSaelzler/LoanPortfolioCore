@@ -17,144 +17,191 @@ namespace LoanPortfolioCore
 
         static void Main(string[] args)
         {
+            //10 is just an arbitrary number to cover rounding
+            //so if after the minumum payment is done, there is less than a $10 balance
+            //just pay the remainder off.
+            //it's a pretty high fudge factor. In calculations so far, only have been off a few pennies.
+            const int fudgeFactor = 10;
+
             //initialize stuff
             Mapper.Initialize(cfg => cfg.CreateMap<Loan, LoanOutput>());
             PopulateDimensions(new DateTime(2019, 6, 1));
-            CreateStrategies();
 
             //start the main for loop
             foreach (Strategy s in Strategies)
             {
-                var payments = new List<Payment>();
+                //calc the max extra per month (stays constant month-over-month)
+                var totalSpendPerMonth = s.ExtraPerMonth + Loans.Sum(l => l.MinPayment);
 
                 foreach (Month m in Months)
                 {
-                    //don't put anything in the "extra" pile if we should still be waiting
-                    //the MonthId starts at ONE for the first month. Months delay starts at 0
-                    double extraThisMonth = m.MonthId > s.MonthsDelay ? s.ExtraPerMonth : 0;
-
-                    //order the loans
-                    IOrderedEnumerable<Loan> orderedLoans;
-                    switch (s.SortOrder)
-                    {
-                        case SortOrders.HighestRateFirst:
-                        case SortOrders.NotApplicable: //the order really doesn't matter but we DO need an IOrderedEnumerable
-                            orderedLoans = Loans.OrderByDescending(ul => ul.Rate);
-                            break;
-                        case SortOrders.LowestBalanceFirst:
-                            orderedLoans = Loans.OrderBy(ul => ul.Principal);
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException();
-                    }
-
-                    foreach (Loan l in orderedLoans)
+                    //pay min
+                    foreach (Loan l in Loans)
                     {
                         //get all the principal payments up to this point
-                        var pastPayments = payments.Where(p => p.LoanId == l.LoanId && p.MonthId < m.MonthId);
+                        var pastPayments = Payments.Where(p =>
+                            p.StrategyId == s.StrategyId &&
+                            p.LoanId == l.LoanId &&
+                            p.MonthId < m.MonthId);
 
+                        //calc balance (EXPENSIVE)
                         var totalPaid = pastPayments.Sum(p => p.Principal + p.AdditionalPrincipal);
-
                         var loanBalance = l.Principal - totalPaid;
 
                         if (loanBalance > 0)
                         {
                             //determine payment id
-                            var maxOverallPaymentId = Payments.DefaultIfEmpty().Max(p => p?.PaymentId ?? 0);
-                            var maxStratPaymentId = payments.DefaultIfEmpty().Max(p => p?.PaymentId ?? 0);
-                            var maxPaymentId = Math.Max(maxOverallPaymentId, maxStratPaymentId);
-                            var currPaymentId = maxOverallPaymentId + 1;
+                            var maxPaymentId = Payments.DefaultIfEmpty().Max(p => p?.PaymentId ?? 0);
+                            var currPaymentId = maxPaymentId + 1;
 
                             //calculate "standard" payment
                             var currInterest = loanBalance * (l.Rate / 12);
                             var currPrincipal = l.MinPayment - currInterest;
 
                             //pay the minumum principal (or the remaining balance)
-                            if (loanBalance <= currPrincipal)
+                            if (loanBalance <= currPrincipal + fudgeFactor)
                             {
                                 currPrincipal = loanBalance;
                             }
                             loanBalance -= currPrincipal;
 
-                            //10 is just an arbitrary number to cover rounding
-                            //so if after the minumum payment is done, there is less than a $10 balance
-                            //just pay the remainder off.
-                            //it's a pretty high fudge factor. In calculations so far, only have been off a few pennies.
-                            int fudgeFactor = 10;
-                            double currAdditionalPrincipal = 0;
-
-                            //(optionally) add a bit of additional principal to cover finishing off the loan
-                            //DO NOT reset the extra per month to 0
-                            if (loanBalance < fudgeFactor)
-                            {
-                                currAdditionalPrincipal = loanBalance;
-                            }
-                            loanBalance -= currAdditionalPrincipal;
-
-                            //(optionally) add additional principal
-                            if (extraThisMonth > 0 && loanBalance > 0)
-                            {
-                                if (extraThisMonth < loanBalance)
-                                {
-                                    currAdditionalPrincipal = extraThisMonth;
-                                }
-                                else
-                                {
-                                    currAdditionalPrincipal = loanBalance;
-                                }
-                                loanBalance -= currAdditionalPrincipal;
-
-                                extraThisMonth -= currAdditionalPrincipal;
-                            }
-
+                            //create and add payment
                             var payment = new Payment()
                             {
                                 PaymentId = currPaymentId,
-                                Interest = currInterest,
                                 LoanId = l.LoanId,
-                                AdditionalPrincipal = currAdditionalPrincipal,
-                                MonthId = m.MonthId,
-                                Principal = currPrincipal,
                                 StrategyId = s.StrategyId,
-                                PrincipalBalance = loanBalance
+                                MonthId = m.MonthId,
+                                Interest = currInterest,
+                                Principal = currPrincipal,
+                                PrincipalBalance = loanBalance,
+                                AdditionalPrincipal = 0, //this will be added in the next step
                             };
+                            Payments.Add(payment);
+                        }
+                    }
 
-                            payments.Add(payment);
-                            //Console.ReadLine();
+                    //add exta principal if not the base case
+                    if (s.StrategyName != "Base" && m.MonthId > s.MonthsDelay)
+                    {
+                        //order the loans
+                        IOrderedEnumerable<Loan> orderedLoans;
+                        switch (s.SortOrder)
+                        {
+                            case SortOrders.HighestRateFirst:
+                                orderedLoans = Loans.OrderByDescending(ul => ul.Rate);
+                                break;
+                            case SortOrders.LowestBalanceFirst:
+                                orderedLoans = Loans.OrderBy(ul => ul.Principal);
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
+
+                        //get the sum of the mimimum payments this month
+                        var minPaymentSumThisMonth = Payments
+                            .Where(p => p.MonthId == m.MonthId && p.StrategyId == s.StrategyId)
+                            .Sum(p => p.Principal + p.Interest);
+
+                        //get the extra to work with this month
+                        double extraThisMonth = 0;
+                        switch (s.ExtraPerMonthCalcMethod)
+                        {
+                            case ExtraPerMonthCalcMethods.MinPaymentPlusExtra:
+                                extraThisMonth = s.ExtraPerMonth;
+                                break;
+                            case ExtraPerMonthCalcMethods.Contant:
+                                extraThisMonth = totalSpendPerMonth - minPaymentSumThisMonth;
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
+
+                        //adjust existing payments - add additional principal
+                        foreach (Loan l in orderedLoans)
+                        {
+                            double extraThisMonthThisLoan = 0;
+
+                            //get all the principal payments up to this point
+                            var pastPayments = Payments.Where(p =>
+                                p.StrategyId == s.StrategyId &&
+                                p.LoanId == l.LoanId &&
+                                p.MonthId <= m.MonthId);
+
+                            //calc balance (EXPENSIVE)
+                            var totalPaid = pastPayments.Sum(p => p.Principal + p.AdditionalPrincipal);
+                            var loanBalance = l.Principal - totalPaid;
+
+                            if (loanBalance > 0 && extraThisMonth > 0)
+                            {
+                                //figure out the extra amount to pay
+                                if (loanBalance > extraThisMonth)
+                                {
+                                    extraThisMonthThisLoan = extraThisMonth;
+                                }
+                                else
+                                {
+                                    extraThisMonthThisLoan = loanBalance;
+                                }
+
+                                //adjust running totals
+                                loanBalance -= extraThisMonthThisLoan;
+                                extraThisMonth -= extraThisMonthThisLoan;
+
+                                //determine latest payment id
+                                var latestPmtId = pastPayments.Select(p => p.PaymentId).Max();
+
+                                //adjust the latest payment
+                                foreach (var p in Payments)
+                                {
+                                    if (p.PaymentId == latestPmtId)
+                                    {
+                                        p.AdditionalPrincipal = extraThisMonthThisLoan;
+                                        loanBalance -= extraThisMonthThisLoan;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
 
-                Payments.AddRange(payments);
                 Console.WriteLine($"{s.StrategyId} of {Strategies.Count}");
             }
 
             WriteOutputFiles();
             //WriteDebugInfo();
+
             Console.ReadLine();
         }
         private static void PopulateDimensions(DateTime beginDate)
         {
+            //loans
             Loans = new Loan[] {
                 new Loan() { LoanId = 1, LoanName = "Sample 10 Year", Principal = 20000, Rate = 0.06, TermInMonths = 120 },
                 new Loan() { LoanId = 2, LoanName = "Sample 5 Year", Principal = 10000, Rate = 0.04, TermInMonths = 60 }
                 };
 
+            //months
+            var maxTerm = Loans.Select(l => l.TermInMonths).Max(); //max of the base strat loan terms
             Months = new List<Month>();
-            for (int i = 0; i < 360; i++) //nothing special about 360 - just seemed like long time!
+            for (int i = 0; i < maxTerm; i++) 
             {
                 Months.Add(new Month() { MonthId = i + 1, Date = beginDate.AddMonths(i) });
             }
 
+            //payments (empty container)
             Payments = new List<Payment>();
+
+            //strategies
+            CreateStrategies();
         }
         private static void WriteOutputFiles()
         {
             const string filePath = @"C:\Users\vince\Downloads\Power BI\Data\";
-            string outFileNamePmt = $"{filePath}Loan Payments v05.csv";
-            string outFileNameLoan = $"{filePath}Loan Loans v05.csv";
-            string outFileNameStrat = $"{filePath}Loan Strategies v05.csv";
-            string outFileNameMonth = $"{filePath}Loan Months v05.csv";
+            string outFileNamePmt = $"{filePath}Loan Payments v06.csv";
+            string outFileNameLoan = $"{filePath}Loan Loans v06.csv";
+            string outFileNameStrat = $"{filePath}Loan Strategies v06.csv";
+            string outFileNameMonth = $"{filePath}Loan Months v06.csv";
 
             //payments
             var outEnginePmt = new FileHelperEngine<Payment>();
@@ -217,9 +264,12 @@ namespace LoanPortfolioCore
             //sort orders
             var sortOrders = new SortOrders[] { SortOrders.HighestRateFirst, SortOrders.LowestBalanceFirst };
 
+            //extra per month calc methods
+            var extraPerMonthCalcMethods = new ExtraPerMonthCalcMethods[] { ExtraPerMonthCalcMethods.Contant, ExtraPerMonthCalcMethods.MinPaymentPlusExtra };
+
             //months/years of delay
             const int monthsInYear = 12;
-            const int maxYears = 20;
+            const int maxYears = 2;
 
             IList<int> monthsDelay = new List<int>();
             for (int y = 0; y <= maxYears; y++)
@@ -228,11 +278,11 @@ namespace LoanPortfolioCore
             }
 
             //extra payment amounts per month
-            const int amountStep = 500;
-            const int numAmountSteps = 10;
+            const int amountStep = 100;
+            const int numAmountSteps = 3;
 
             IList<int> extraAmounts = new List<int>();
-            for (int a = 1; a < numAmountSteps; a++)
+            for (int a = 1; a <= numAmountSteps; a++)
             {
                 extraAmounts.Add(a * amountStep);
             }
@@ -241,25 +291,36 @@ namespace LoanPortfolioCore
             int id = 1;
             Strategies = new List<Strategy>
             {
-                new Strategy() { StrategyId = id, ExtraPerMonth = 0, SortOrder = SortOrders.NotApplicable, StrategyName = "Base", MonthsDelay = 0 }
+                new Strategy() {
+                    StrategyId = id,
+                    ExtraPerMonth = 0,
+                    SortOrder = SortOrders.NotApplicable,
+                    StrategyName = "Base",
+                    MonthsDelay = 0,
+                    ExtraPerMonthCalcMethod = ExtraPerMonthCalcMethods.NotApplicable
+                }
             };
 
             //create the rest of the strategies
-            foreach (SortOrders sortOrder in sortOrders)
+            foreach (ExtraPerMonthCalcMethods extraPerMonthCalcMethod in extraPerMonthCalcMethods)
             {
-                foreach (var extraAmount in extraAmounts)
+                foreach (SortOrders sortOrder in sortOrders)
                 {
-                    foreach (var monthDelay in monthsDelay)
+                    foreach (var extraAmount in extraAmounts)
                     {
-                        id++;
-                        Strategies.Add(new Strategy
+                        foreach (var monthDelay in monthsDelay)
                         {
-                            StrategyId = id,
-                            ExtraPerMonth = extraAmount,
-                            SortOrder = sortOrder,
-                            StrategyName = $"{sortOrder} {extraAmount} {monthDelay}",
-                            MonthsDelay = monthDelay
-                        });
+                            id++;
+                            Strategies.Add(new Strategy
+                            {
+                                StrategyId = id,
+                                ExtraPerMonth = extraAmount,
+                                SortOrder = sortOrder,
+                                StrategyName = $"{extraPerMonthCalcMethod} {sortOrder} {extraAmount} {monthDelay}",
+                                MonthsDelay = monthDelay,
+                                ExtraPerMonthCalcMethod = extraPerMonthCalcMethod
+                            });
+                        }
                     }
                 }
             }
