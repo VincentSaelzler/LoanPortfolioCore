@@ -20,6 +20,7 @@ namespace LoanPortfolioCore
             //initialize stuff
             Mapper.Initialize(cfg => cfg.CreateMap<Loan, LoanOutput>());
             PopulateDimensions(new DateTime(2019, 6, 1));
+            CreateStrategies();
 
             //start the main for loop
             foreach (Strategy s in Strategies)
@@ -125,11 +126,11 @@ namespace LoanPortfolioCore
                 }
 
                 Payments.AddRange(payments);
-                Console.WriteLine(s.StrategyId);
+                Console.WriteLine($"{s.StrategyId} of {Strategies.Count}");
             }
 
             WriteOutputFiles();
-            WriteDebugInfo();
+            //WriteDebugInfo();
             Console.ReadLine();
         }
         private static void PopulateDimensions(DateTime beginDate)
@@ -138,45 +139,6 @@ namespace LoanPortfolioCore
                 new Loan() { LoanId = 1, LoanName = "Sample 10 Year", Principal = 20000, Rate = 0.06, TermInMonths = 120 },
                 new Loan() { LoanId = 2, LoanName = "Sample 5 Year", Principal = 10000, Rate = 0.04, TermInMonths = 60 }
                 };
-
-            //strategies
-            int id = 1;
-            var sortOrders = new SortOrders[] { SortOrders.HighestRateFirst, SortOrders.LowestBalanceFirst };
-
-            const int loopMax = 10;
-            int[] extraAmounts = new int[loopMax];
-            int[] monthsDelay = new int[loopMax];
-            for (int i = 0; i < loopMax; i++)
-            {
-                extraAmounts[i] = (i + 1) * 100;
-                monthsDelay[i] = i;
-            }
-
-            //create the "special" base strategy
-            Strategies = new List<Strategy>
-            {
-                new Strategy() { StrategyId = id, ExtraPerMonth = 0, SortOrder = SortOrders.NotApplicable, StrategyName = "Base", MonthsDelay = 0 }
-            };
-
-            //create the rest of the strategies
-            foreach (var sortOrder in sortOrders)
-            {
-                foreach (var extraAmount in extraAmounts)
-                {
-                    foreach (var monthDelay in monthsDelay)
-                    {
-                        id++;
-                        Strategies.Add(new Strategy
-                        {
-                            StrategyId = id,
-                            ExtraPerMonth = extraAmount,
-                            SortOrder = sortOrder,
-                            StrategyName = $"{sortOrder} {extraAmount}",
-                            MonthsDelay = monthDelay
-                        });
-                    }
-                }
-            }
 
             Months = new List<Month>();
             for (int i = 0; i < 360; i++) //nothing special about 360 - just seemed like long time!
@@ -248,6 +210,58 @@ namespace LoanPortfolioCore
             for (int i = 1; i <= 6; i++)
             {
                 Console.WriteLine(i.ToString() + " " + Payments.Where(p => p.StrategyId == i).Count().ToString());
+            }
+        }
+        private static void CreateStrategies()
+        {
+            //sort orders
+            var sortOrders = new SortOrders[] { SortOrders.HighestRateFirst, SortOrders.LowestBalanceFirst };
+
+            //months/years of delay
+            const int monthsInYear = 12;
+            const int maxYears = 20;
+
+            IList<int> monthsDelay = new List<int>();
+            for (int y = 0; y <= maxYears; y++)
+            {
+                monthsDelay.Add(y * monthsInYear);
+            }
+
+            //extra payment amounts per month
+            const int amountStep = 500;
+            const int numAmountSteps = 10;
+
+            IList<int> extraAmounts = new List<int>();
+            for (int a = 1; a < numAmountSteps; a++)
+            {
+                extraAmounts.Add(a * amountStep);
+            }
+
+            //create the "special" base strategy
+            int id = 1;
+            Strategies = new List<Strategy>
+            {
+                new Strategy() { StrategyId = id, ExtraPerMonth = 0, SortOrder = SortOrders.NotApplicable, StrategyName = "Base", MonthsDelay = 0 }
+            };
+
+            //create the rest of the strategies
+            foreach (SortOrders sortOrder in sortOrders)
+            {
+                foreach (var extraAmount in extraAmounts)
+                {
+                    foreach (var monthDelay in monthsDelay)
+                    {
+                        id++;
+                        Strategies.Add(new Strategy
+                        {
+                            StrategyId = id,
+                            ExtraPerMonth = extraAmount,
+                            SortOrder = sortOrder,
+                            StrategyName = $"{sortOrder} {extraAmount} {monthDelay}",
+                            MonthsDelay = monthDelay
+                        });
+                    }
+                }
             }
         }
     }
