@@ -294,18 +294,20 @@ namespace LoanPortfolioCore
             var extraPerMonthCalcMethods = new ExtraPerMonthCalcMethods[] { ExtraPerMonthCalcMethods.Contant, ExtraPerMonthCalcMethods.MinPaymentPlusExtra };
 
             //months/years of delay
-            const int monthsInYear = 12;
-            const int maxYears = 2;
+            var maxTerm = Loans.Select(l => l.TermInMonths).Max(); //max of the base strat loan terms
+            const int monthStep = 12;
+            var m = 0;
 
             IList<int> monthsDelay = new List<int>();
-            for (int y = 0; y <= maxYears; y++)
+            do
             {
-                monthsDelay.Add(y * monthsInYear);
-            }
+                monthsDelay.Add(m * monthStep);
+                m++;
+            } while (m * monthStep < maxTerm);
 
             //extra payment amounts per month
             const int amountStep = 100;
-            const int numAmountSteps = 3;
+            const int numAmountSteps = 20;
 
             IList<int> extraAmounts = new List<int>();
             for (int a = 1; a <= numAmountSteps; a++)
