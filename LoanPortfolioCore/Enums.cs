@@ -5,5 +5,6 @@ using System.Text;
 namespace LoanPortfolioCore
 {
     enum SortOrders { HighestRateFirst, LowestBalanceFirst, NotApplicable }
-    enum ExtraPerMonthCalcMethods{ Contant, MinPaymentPlusExtra, NotApplicable }
+    enum ExtraPerMonthCalcMethods { Contant, MinPaymentPlusExtra, NotApplicable }
+    enum UseSortOrderGroups { DoNotUse, Use, NotApplicable }
 }

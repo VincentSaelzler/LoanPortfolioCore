@@ -14,5 +14,6 @@ namespace LoanPortfolioCore.Models
         public double ExtraPerMonth { get; set; }
         public int MonthsDelay { get; set; }
         public ExtraPerMonthCalcMethods ExtraPerMonthCalcMethod { get; set; }
+        public UseSortOrderGroups UseSortOrderGroup { get; set; }
     }
 }

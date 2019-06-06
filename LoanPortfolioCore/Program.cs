@@ -85,14 +85,30 @@ namespace LoanPortfolioCore
                     if (s.StrategyName != "Base" && m.MonthId > s.MonthsDelay)
                     {
                         //order the loans
+                        //MSDN https://docs.microsoft.com/en-us/dotnet/api/system.linq.enumerable.orderbydescending?view=netframework-4.8
+                        //you must use .ThenBy(). If you call .OrderBy on something that was already ordered, it introduces a NEW primary ordering.
                         IOrderedEnumerable<Loan> orderedLoans;
                         switch (s.SortOrder)
                         {
                             case SortOrders.HighestRateFirst:
-                                orderedLoans = Loans.OrderByDescending(ul => ul.Rate);
+                                if (s.UseSortOrderGroup == UseSortOrderGroups.Use)
+                                {
+                                    orderedLoans = Loans.OrderBy(l => l.SortGroup).ThenByDescending(l => l.Rate);
+                                }
+                                else
+                                {
+                                    orderedLoans = Loans.OrderByDescending(l => l.Rate);
+                                }
                                 break;
                             case SortOrders.LowestBalanceFirst:
-                                orderedLoans = Loans.OrderBy(ul => ul.Principal);
+                                if (s.UseSortOrderGroup == UseSortOrderGroups.Use)
+                                {
+                                    orderedLoans = Loans.OrderBy(l => l.SortGroup).ThenBy(l => l.Principal);
+                                }
+                                else
+                                {
+                                    orderedLoans = Loans.OrderBy(l => l.Principal);
+                                }
                                 break;
                             default:
                                 throw new ArgumentOutOfRangeException();
@@ -177,14 +193,14 @@ namespace LoanPortfolioCore
         {
             //loans
             Loans = new Loan[] {
-                new Loan() { LoanId = 1, LoanName = "Sample 10 Year", Principal = 20000, Rate = 0.06, TermInMonths = 120 },
-                new Loan() { LoanId = 2, LoanName = "Sample 5 Year", Principal = 10000, Rate = 0.04, TermInMonths = 60 }
+                new Loan() { LoanId = 1, LoanName = "Sample 10 Year", Principal = 20000, Rate = 0.06, TermInMonths = 120, SortGroup = 2 },
+                new Loan() { LoanId = 2, LoanName = "Sample 5 Year", Principal = 10000, Rate = 0.04, TermInMonths = 60, SortGroup = 1 },
                 };
 
             //months
             var maxTerm = Loans.Select(l => l.TermInMonths).Max(); //max of the base strat loan terms
             Months = new List<Month>();
-            for (int i = 0; i < maxTerm; i++) 
+            for (int i = 0; i < maxTerm; i++)
             {
                 Months.Add(new Month() { MonthId = i + 1, Date = beginDate.AddMonths(i) });
             }
@@ -261,6 +277,9 @@ namespace LoanPortfolioCore
         }
         private static void CreateStrategies()
         {
+            //sort orderr groups
+            var useSortOrderGroups = new UseSortOrderGroups[] { UseSortOrderGroups.Use, UseSortOrderGroups.DoNotUse };
+
             //sort orders
             var sortOrders = new SortOrders[] { SortOrders.HighestRateFirst, SortOrders.LowestBalanceFirst };
 
@@ -297,29 +316,34 @@ namespace LoanPortfolioCore
                     SortOrder = SortOrders.NotApplicable,
                     StrategyName = "Base",
                     MonthsDelay = 0,
-                    ExtraPerMonthCalcMethod = ExtraPerMonthCalcMethods.NotApplicable
+                    ExtraPerMonthCalcMethod = ExtraPerMonthCalcMethods.NotApplicable,
+                    UseSortOrderGroup = UseSortOrderGroups.NotApplicable,
                 }
             };
 
             //create the rest of the strategies
-            foreach (ExtraPerMonthCalcMethods extraPerMonthCalcMethod in extraPerMonthCalcMethods)
+            foreach (UseSortOrderGroups useSortOrderGroup in useSortOrderGroups)
             {
-                foreach (SortOrders sortOrder in sortOrders)
+                foreach (ExtraPerMonthCalcMethods extraPerMonthCalcMethod in extraPerMonthCalcMethods)
                 {
-                    foreach (var extraAmount in extraAmounts)
+                    foreach (SortOrders sortOrder in sortOrders)
                     {
-                        foreach (var monthDelay in monthsDelay)
+                        foreach (var extraAmount in extraAmounts)
                         {
-                            id++;
-                            Strategies.Add(new Strategy
+                            foreach (var monthDelay in monthsDelay)
                             {
-                                StrategyId = id,
-                                ExtraPerMonth = extraAmount,
-                                SortOrder = sortOrder,
-                                StrategyName = $"{extraPerMonthCalcMethod} {sortOrder} {extraAmount} {monthDelay}",
-                                MonthsDelay = monthDelay,
-                                ExtraPerMonthCalcMethod = extraPerMonthCalcMethod
-                            });
+                                id++;
+                                Strategies.Add(new Strategy
+                                {
+                                    StrategyId = id,
+                                    ExtraPerMonth = extraAmount,
+                                    SortOrder = sortOrder,
+                                    StrategyName = $"{useSortOrderGroup} {extraPerMonthCalcMethod} {sortOrder} {extraAmount} {monthDelay}",
+                                    MonthsDelay = monthDelay,
+                                    ExtraPerMonthCalcMethod = extraPerMonthCalcMethod,
+                                    UseSortOrderGroup = useSortOrderGroup,
+                                });
+                            }
                         }
                     }
                 }
