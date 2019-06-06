@@ -5,6 +5,7 @@ using LoanPortfolioCore.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 
 namespace LoanPortfolioCore
 {
@@ -17,6 +18,9 @@ namespace LoanPortfolioCore
 
         static void Main(string[] args)
         {
+            //start timer
+            var watch = Stopwatch.StartNew();
+
             //10 is just an arbitrary number to cover rounding
             //so if after the minumum payment is done, there is less than a $10 balance
             //just pay the remainder off.
@@ -187,6 +191,9 @@ namespace LoanPortfolioCore
             WriteOutputFiles();
             //WriteDebugInfo();
 
+            //show timer results
+            watch.Stop();
+            Console.WriteLine(watch.ElapsedMilliseconds);
             Console.ReadLine();
         }
         private static void PopulateDimensions(DateTime beginDate)
