@@ -157,7 +157,7 @@ namespace LoanPortfolioCore
                                     if (p.PaymentId == latestPmtId)
                                     {
                                         p.AdditionalPrincipal = extraThisMonthThisLoan;
-                                        loanBalance -= extraThisMonthThisLoan;
+                                        p.PrincipalBalance = loanBalance;
                                     }
                                 }
                             }
