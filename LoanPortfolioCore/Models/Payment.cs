@@ -17,5 +17,6 @@ namespace LoanPortfolioCore.Models
         public double Interest { get; set; }
         public double Principal { get; set; }
         public double PrincipalBalance { get; set; }
+        public double Insurance { get; set; }
     }
 }

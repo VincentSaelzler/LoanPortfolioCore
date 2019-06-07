@@ -62,6 +62,11 @@ namespace LoanPortfolioCore
 
                         if (loanBalance > 0)
                         {
+                            double insurancePmt = 0;
+                            if (loanBalance > l.InsuranceThreshold)
+                            {
+                                insurancePmt = l.InsurancePayment;
+                            }
                             //determine payment id
                             var maxPaymentId = payments.DefaultIfEmpty().Max(p => p?.PaymentId ?? 0);
                             var currPaymentId = maxPaymentId + 1;
@@ -88,6 +93,7 @@ namespace LoanPortfolioCore
                                 Principal = currPrincipal,
                                 PrincipalBalance = loanBalance,
                                 AdditionalPrincipal = 0, //this will be added in the next step
+                                Insurance = insurancePmt,
                             };
                             payments.Add(payment);
                         }
@@ -223,7 +229,7 @@ namespace LoanPortfolioCore
         {
             //loans
             Loans = new Loan[] {
-                new Loan() { LoanId = 1, LoanName = "Sample 10 Year", Principal = 20000, Rate = 0.06, TermInMonths = 120, SortGroup = 2 },
+                new Loan() { LoanId = 1, LoanName = "Sample 10 Year", Principal = 20000, Rate = 0.06, TermInMonths = 120, SortGroup = 2, InsurancePayment = 50, InsuranceThreshold = 16000 },
                 new Loan() { LoanId = 2, LoanName = "Sample 5 Year", Principal = 10000, Rate = 0.04, TermInMonths = 60, SortGroup = 1 },
                 };
 
@@ -244,10 +250,10 @@ namespace LoanPortfolioCore
         private static void WriteOutputFiles()
         {
             const string filePath = @"C:\Users\vince\Downloads\Power BI\Data\";
-            string outFileNamePmt = $"{filePath}Loan Payments v06.csv";
-            string outFileNameLoan = $"{filePath}Loan Loans v06.csv";
-            string outFileNameStrat = $"{filePath}Loan Strategies v06.csv";
-            string outFileNameMonth = $"{filePath}Loan Months v06.csv";
+            string outFileNamePmt = $"{filePath}Loan Payments v07.csv";
+            string outFileNameLoan = $"{filePath}Loan Loans v07.csv";
+            string outFileNameStrat = $"{filePath}Loan Strategies v07.csv";
+            string outFileNameMonth = $"{filePath}Loan Months v07.csv";
 
             //payments
             var outEnginePmt = new FileHelperEngine<Payment>();

@@ -13,6 +13,8 @@ namespace LoanPortfolioCore.Models
         public int TermInMonths { get; set; }
         public string LoanName { get; set; }
         public int SortGroup { get; set; }
+        public double InsuranceThreshold { get; set; }
+        public double InsurancePayment { get; set; }
         public double MinPayment
         {
             get
