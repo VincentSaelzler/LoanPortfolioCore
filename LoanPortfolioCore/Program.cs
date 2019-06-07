@@ -61,7 +61,7 @@ namespace LoanPortfolioCore
                         if (loanBalance > 0)
                         {
                             //determine payment id
-                            var maxPaymentId = Payments.DefaultIfEmpty().Max(p => p?.PaymentId ?? 0);
+                            var maxPaymentId = payments.DefaultIfEmpty().Max(p => p?.PaymentId ?? 0);
                             var currPaymentId = maxPaymentId + 1;
 
                             //calculate "standard" payment
@@ -178,7 +178,7 @@ namespace LoanPortfolioCore
                                 var latestPmtId = pastPayments.Select(p => p.PaymentId).Max();
 
                                 //adjust the latest payment
-                                foreach (var p in Payments)
+                                foreach (var p in payments)
                                 {
                                     if (p.PaymentId == latestPmtId)
                                     {
