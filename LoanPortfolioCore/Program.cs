@@ -12,7 +12,7 @@ namespace LoanPortfolioCore
     class Program
     {
         private static IEnumerable<Loan> Loans { get; set; }
-        private static List<Payment> Payments { get; set; }
+        private static IEnumerable<Payment> Payments { get; set; }
         private static IList<Month> Months { get; set; }
         private static IList<Strategy> Strategies { get; set; }
 
@@ -31,9 +31,15 @@ namespace LoanPortfolioCore
             Mapper.Initialize(cfg => cfg.CreateMap<Loan, LoanOutput>());
             PopulateDimensions(new DateTime(2019, 6, 1));
 
+            //container
+            IList<IList<Payment>> paymentLists = new List<IList<Payment>>();
+
             //start the main for loop
             foreach (Strategy s in Strategies)
             {
+                //container
+                IList<Payment> payments = new List<Payment>();
+
                 //calc the max extra per month (stays constant month-over-month)
                 var totalSpendPerMonth = s.ExtraPerMonth + Loans.Sum(l => l.MinPayment);
 
@@ -43,7 +49,7 @@ namespace LoanPortfolioCore
                     foreach (Loan l in Loans)
                     {
                         //get all the principal payments up to this point
-                        var pastPayments = Payments.Where(p =>
+                        var pastPayments = payments.Where(p =>
                             p.StrategyId == s.StrategyId &&
                             p.LoanId == l.LoanId &&
                             p.MonthId < m.MonthId);
@@ -81,7 +87,7 @@ namespace LoanPortfolioCore
                                 PrincipalBalance = loanBalance,
                                 AdditionalPrincipal = 0, //this will be added in the next step
                             };
-                            Payments.Add(payment);
+                            payments.Add(payment);
                         }
                     }
 
@@ -119,7 +125,7 @@ namespace LoanPortfolioCore
                         }
 
                         //get the sum of the mimimum payments this month
-                        var minPaymentSumThisMonth = Payments
+                        var minPaymentSumThisMonth = payments
                             .Where(p => p.MonthId == m.MonthId && p.StrategyId == s.StrategyId)
                             .Sum(p => p.Principal + p.Interest);
 
@@ -143,7 +149,7 @@ namespace LoanPortfolioCore
                             double extraThisMonthThisLoan = 0;
 
                             //get all the principal payments up to this point
-                            var pastPayments = Payments.Where(p =>
+                            var pastPayments = payments.Where(p =>
                                 p.StrategyId == s.StrategyId &&
                                 p.LoanId == l.LoanId &&
                                 p.MonthId <= m.MonthId);
@@ -185,7 +191,22 @@ namespace LoanPortfolioCore
                     }
                 }
 
+                //add to out-of-loop container
+                paymentLists.Add(payments);
+
+                //show progress
                 Console.WriteLine($"{s.StrategyId} of {Strategies.Count}");
+            }
+
+            //get all the payments in one enumerable
+            Payments = paymentLists.SelectMany(plist => plist.AsEnumerable());
+
+            //add (arbitrary) payment ids
+            int i = 0;
+            foreach (var p in Payments)
+            {
+                i++;
+                p.PaymentId = i;
             }
 
             WriteOutputFiles();
