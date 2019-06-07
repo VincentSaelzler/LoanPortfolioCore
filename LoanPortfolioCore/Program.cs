@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace LoanPortfolioCore
 {
@@ -32,10 +34,10 @@ namespace LoanPortfolioCore
             PopulateDimensions(new DateTime(2019, 6, 1));
 
             //container
-            IList<IList<Payment>> paymentLists = new List<IList<Payment>>();
+            ConcurrentBag<IList<Payment>> paymentLists = new ConcurrentBag<IList<Payment>>();
 
             //start the main for loop
-            foreach (Strategy s in Strategies)
+            Parallel.ForEach(Strategies, s =>
             {
                 //container
                 IList<Payment> payments = new List<Payment>();
@@ -196,7 +198,7 @@ namespace LoanPortfolioCore
 
                 //show progress
                 Console.WriteLine($"{s.StrategyId} of {Strategies.Count}");
-            }
+            });
 
             //get all the payments in one enumerable
             Payments = paymentLists.SelectMany(plist => plist.AsEnumerable());
